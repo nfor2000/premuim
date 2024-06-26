@@ -72,18 +72,24 @@ try {
                               
                               try {
                                    //code...
-                                   foreach($occupants as $occupant){
-                                        $matricule = $occupant->matricule;
-                                        $stmt2 = $pdo->prepare("SELECT * FROM delegates WHERE matricule = ?");
-                                        $stmt2->execute([$matricule]);
                                    
-                                        $is_delegate = $stmt2->rowCount() > 0?1:0;
-                                   }
-
+                                   
                                    $stmt = $pdo->prepare("SELECT * FROM final_table WHERE CLASS_ID = ?");
                                    $stmt->execute([$id]);
                                    if ($stmt->rowCount() == 1) {
                                         $final_class = $stmt->fetch(PDO::FETCH_OBJ);
+                                        $is_delegate = false;
+                                        $is_current_occupant = false;
+                                        foreach($occupants as $occupant){
+                                             $matricule = $occupant->matricule;
+                                             
+                                             $stmt2 = $pdo->prepare("SELECT * FROM delegates WHERE matricule = ? AND course_id = ?");
+                                             $stmt2->execute([$matricule, $final_class->COURSE_ID]);
+
+                                             $is_current_occupant = $user_matricule == $matricule?true: false;
+                                             $is_delegate = $stmt2->rowCount() > 0?true:false;
+                                        }
+                                        
 
                                         $currentTime = strtotime($current_time);
                                         $startTime = strtotime($final_class->START_TIME);
@@ -92,8 +98,9 @@ try {
                                         $cond_a  = strcasecmp($day, $final_class->Day) == 0 ;
                                         $cond_b = ($currentTime >= $startTime);
                                         $cond_c = ($currentTime <= $stopTime);
+
                                    
-                                        if (($cond_a && $cond_b && $cond_c && $cond_d) ||  $cond_d) {
+                                        if (($cond_a && $cond_b && $cond_c && $cond_d && $is_delegate) ||  (!$cond_a && $cond_d && !$is_delegate) ) {
                                              $state = "class occupied";
                                         } else if ($cond_a  && !$cond_d) {
                                              $state = "expected";
@@ -122,10 +129,17 @@ try {
                                    </td>
                                    <td>
                                         <?php
-                                        if (strcasecmp($state, "class occupied") == 0) {
+                                        if (strcasecmp($state, "class occupied") == 0 || strcasecmp($state, "expected occupied") == 0) {
+                                             if($is_current_occupant ){
                                         ?>
                                              <a href="toggle.php?id=<?= $class->Id ?>" class="btn btn-primary">Release</a>
                                         <?php
+                                             }else{
+                                        ?>
+                                             <a href="toggle.php?id=<?= $class->Id ?>" class="btn btn-primary disabled">Occupied</a>
+     
+                                        <?php
+                                             }
                                         } else {
                                         ?>
                                              <a href="toggle.php?id=<?= $class->Id ?>" class="btn btn-danger">Occupy</a>
