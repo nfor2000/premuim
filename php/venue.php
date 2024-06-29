@@ -1,5 +1,6 @@
 <?php
      require_once("./db_connect.php");
+     require_once('../components/errorlog.php');
 
 
      try {
@@ -9,7 +10,7 @@
           $data = $stmt->fetchAll(PDO::FETCH_OBJ); 
 
      } catch (PDOException $e) {
-          echo "An error occured: ".$e->getMessage();
+          errorLog($e);
      }
 ?>
 

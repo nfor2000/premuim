@@ -1,5 +1,7 @@
 <?php
 
+require_once('../components/errorlog.php');
+
 $dsn = "mysql:host=localhost;dbname=project_db";
 $db_password = "";
 $db_user = "root";

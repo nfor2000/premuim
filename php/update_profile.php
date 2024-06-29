@@ -1,7 +1,18 @@
 <?php
+
+session_start();
+
 require_once('./db_connect.php');
 require_once('../components/errorlog.php');
 
+
+$matricule = $_SESSION["matricule"];
+
+$fetch_user_stmt = $pdo->prepare("SELECT * FROM users WHERE matricule = ?");
+$fetch_user_stmt->execute([$matricule]);
+$user = $fetch_user_stmt->fetch(PDO::FETCH_OBJ);
+
+echo $user->name;
 $fetch_course_stmt = $pdo->query("SELECT * FROM course_table");
 $courses = $fetch_course_stmt->fetchAll(PDO::FETCH_OBJ);
 
@@ -65,23 +76,28 @@ if ($_SERVER["REQUEST_METHOD"] == 'POST') {
 
 <body>
      <main class="w-100 h-100 p-5">
+          <a href="./classes.php" class="btn btn-info">Go Back</a>
           <div class="mx-auto" style="max-width: 480px;">
                <form method="post" class="mw-100 mx-auto">
                     <div class="form-group mb-3">
                          <label for="name">Name:</label>
-                         <input type="text" name="name" placeholder="Enter Name" class="form-control">
+                         <input type="text" name="name" value="<?=$user->name?>" placeholder="Enter Name" class="form-control">
                     </div>
                     <div class="form-group mb-3">
                          <label for="email">Email:</label>
-                         <input type="text" name="email" placeholder="Enter Email" class="form-control">
+                         <input type="text" name="email" value="<?=$user->email?>" placeholder="Enter Email" class="form-control">
                     </div>
                     <div class="form-group mb-3">
                          <label for="matricule">Matricule:</label>
-                         <input type="text" name="matricule" placeholder="Enter Matricule" class="form-control">
+                         <input type="text" name="matricule" value="<?=$user->matricule?>" placeholder="Enter Matricule" class="form-control">
                     </div>
                     <div class="form-group mb-3">
-                         <label for="password">Password:</label>
-                         <input type="text" name="password" placeholder="Enter Password" class="form-control">
+                         <label for="password">Old Password:</label>
+                         <input type="text" name="old_password" placeholder="Enter Password" class="form-control">
+                    </div>
+                    <div class="form-group mb-3">
+                         <label for="password">New Password:</label>
+                         <input type="text" name="new_password" placeholder="Enter Password" class="form-control">
                     </div>
                     <div class="form-group mb-3">
                          <label for="course">For delegates only</label>
@@ -97,7 +113,6 @@ if ($_SERVER["REQUEST_METHOD"] == 'POST') {
                          </select>
                     </div>
                     <button type="submit" class="btn btn-outline-primary mb-3">Submit</button>
-                    <p>Already have an account<a href="./login.php"> Login</a></p>
                </form>
 
           </div>

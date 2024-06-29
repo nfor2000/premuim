@@ -1,6 +1,7 @@
 <?php
 
 session_start();
+require_once('../components/errorlog.php');
 require_once('./db_connect.php');
 
 if(empty($_SESSION['matricule'])){
@@ -15,11 +16,14 @@ try {
      $stmt = $pdo->query("SELECT * FROM classes");
      $classes = $stmt->fetchAll(PDO::FETCH_OBJ);
 
-     $stmt1 = $pdo->query("SELECT * FROM occupy");
-     $occupants = $stmt1->fetchAll(PDO::FETCH_OBJ);
+     $stmt_verify_delegate = $pdo->prepare("SELECT * FROM delegates WHERE matricule = ?");
+     $stmt_verify_delegate->execute([$user_matricule]);
+
+     $is_delegate = $stmt_verify_delegate->rowCount() > 0 ?true: false;
+
 
 } catch (PDOException $e) {
-     echo "An error occured: " . $e->getMessage();
+     errorLog($e);
 }
 
 ?>
@@ -37,6 +41,7 @@ try {
 
 <body>
      <main class="p-5">
+          <a href="./update_profile.php" class="btn btn-info">Update profile</a>
           <section class="mb-4">
                <div class="d-flex align-items-center py-2">
                     <div class="circle mx-4 bg-success"></div>
@@ -67,50 +72,43 @@ try {
                          foreach ($classes as $class) {
                               $id = $class->Id;
                               $current_time = date("H:i:s");                              
-                              $day = date('l');
-                              $cond_d = ($class->state);
+                              $day = strtolower(date('l'));
+                              $cond_a = ($class->state);
                               
                               try {
+                                   $stmt_class_occupant = $pdo->prepare("SELECT * FROM occupy WHERE matricule = ? AND class_id = ?");
+                                   $stmt_class_occupant->execute([$user_matricule, $id]);
+                                   $is_class_occupant = $stmt_class_occupant->rowCount() == 1?true:false;
                                    //code...
-                                   
-                                   
-                                   $stmt = $pdo->prepare("SELECT * FROM final_table WHERE CLASS_ID = ?");
-                                   $stmt->execute([$id]);
+                                   $stmt = $pdo->prepare("SELECT * FROM final_table WHERE CLASS_ID = ? AND `Day` = ?");
+                                   $stmt->execute([$id, $day]);
                                    if ($stmt->rowCount() == 1) {
                                         $final_class = $stmt->fetch(PDO::FETCH_OBJ);
-                                        $is_delegate = false;
-                                        $is_current_occupant = false;
-                                        foreach($occupants as $occupant){
-                                             $matricule = $occupant->matricule;
-                                             
-                                             $stmt2 = $pdo->prepare("SELECT * FROM delegates WHERE matricule = ? AND course_id = ?");
-                                             $stmt2->execute([$matricule, $final_class->COURSE_ID]);
-
-                                             $is_current_occupant = $user_matricule == $matricule?true: false;
-                                             $is_delegate = $stmt2->rowCount() > 0?true:false;
-                                        }
-                                        
-
-                                        $currentTime = strtotime($current_time);
+                                       
+                                        $currentTime = strtotime($current_time) - 60*60;
                                         $startTime = strtotime($final_class->START_TIME);
                                         $stopTime = strtotime($final_class->STOP_TIME);
-
-                                        $cond_a  = strcasecmp($day, $final_class->Day) == 0 ;
+                                        
                                         $cond_b = ($currentTime >= $startTime);
                                         $cond_c = ($currentTime <= $stopTime);
 
+                                        $stmt_is_course_delegate = $pdo->prepare("SELECT * FROM delegates WHERE matricule = ? AND course_id = ?");
+                                        $stmt_is_course_delegate->execute([$user_matricule, $final_class->COURSE_ID]);
+                                       
+                                        $is_course_delegate = $stmt_is_course_delegate->rowCount() == 1?true:false;
                                    
-                                        if (($cond_a && $cond_b && $cond_c && $cond_d && $is_delegate) ||  (!$cond_a && $cond_d && !$is_delegate) ) {
-                                             $state = "class occupied";
-                                        } else if ($cond_a  && !$cond_d) {
-                                             $state = "expected";
-                                        } else if ($cond_a && $cond_d && !$is_delegate) {
+                                        if($cond_b && $cond_c  && $cond_a && !$is_course_delegate){
                                              $state = "expected occupied";
-                                        } else {
+                                        }
+                                        else if (($cond_b && $cond_c && $cond_a) ||  $cond_a ) {
+                                             $state = "class occupied";
+                                        } else if ($cond_b && $cond_c  && !$cond_a) {
+                                             $state = "expected";
+                                        }else {
                                              $state = "free";
                                         }
                                    } else {
-                                        if($cond_d){
+                                        if($cond_a){
                                              $state = "class occupied";
                                         }else{
                                              $state = "free";
@@ -129,23 +127,34 @@ try {
                                    </td>
                                    <td>
                                         <?php
-                                        if (strcasecmp($state, "class occupied") == 0 || strcasecmp($state, "expected occupied") == 0) {
-                                             if($is_current_occupant ){
-                                        ?>
-                                             <a href="toggle.php?id=<?= $class->Id ?>" class="btn btn-primary">Release</a>
-                                        <?php
-                                             }else{
-                                        ?>
-                                             <a href="toggle.php?id=<?= $class->Id ?>" class="btn btn-primary disabled">Occupied</a>
-     
-                                        <?php
+                                             if (strcasecmp($state, "class occupied") == 0 || strcasecmp($state, "expected occupied") == 0) {
+                                                  if($is_delegate){
+                                                       if($is_class_occupant){
+                                                  ?>
+                                                       <a href="./toggle.php?id=<?=$class->Id?>" class="btn btn-primary">Release</a>
+                                                  <?php
+                                                       } else{
+                                                  ?>
+                                                         <a href="./toggle.php?id=<?=$class->Id?>" class="btn btn-primary disabled">occupied</a>   
+                                                  <?php
+                                                       }
+                                                       }else{
+                                                  ?>
+                                                       <a href="./toggle.php?id=<?=$class->Id?>" class="btn btn-primary disabled">occupied</a>
+                                                  <?php
+                                                       }
+                                                  }else{
+                                                       if($is_delegate){
+                                                  ?>
+                                                       <a href="./toggle.php?id=<?=$class->Id?>" class="btn btn-danger ">Occupy</a>
+                                                  <?php
+                                                       }else{
+                                                  ?>
+                                                       <a href="./toggle.php?id=<?=$class->id?>" class="btn btn-danger disabled">Occupy</a>
+                                                    <?php 
+                                                  }
                                              }
-                                        } else {
-                                        ?>
-                                             <a href="toggle.php?id=<?= $class->Id ?>" class="btn btn-danger">Occupy</a>
-                                        <?php
-                                        }
-                                        ?>
+                                             ?>
                                    </td>
                               </tr>
                          <?php
