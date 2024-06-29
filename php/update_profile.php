@@ -12,7 +12,6 @@ $fetch_user_stmt = $pdo->prepare("SELECT * FROM users WHERE matricule = ?");
 $fetch_user_stmt->execute([$matricule]);
 $user = $fetch_user_stmt->fetch(PDO::FETCH_OBJ);
 
-echo $user->name;
 $fetch_course_stmt = $pdo->query("SELECT * FROM course_table");
 $courses = $fetch_course_stmt->fetchAll(PDO::FETCH_OBJ);
 
@@ -20,28 +19,32 @@ if ($_SERVER["REQUEST_METHOD"] == 'POST') {
      $name = $_POST['name'];
      $email = $_POST['email'];
      $matricule = $_POST['matricule'];
-     $password = $_POST['password'];
+     $old_password = $_POST['old_password'];
+     $new_password = $_POST['new_password'];
      $course_id = intval($_POST['course']);
 
-     if (empty($name) && empty($email) && empty($matricule) && empty($password)) {
+     if (empty($name) && empty($email) && empty($matricule) && empty($old_password) && empty($new_password)) {
           echo "All fields are required";
      } else {
-          $hash_password = password_hash($password, PASSWORD_BCRYPT);
 
           try {
                //code...
                $sql = "SELECT * FROM users WHERE matricule = ?";
                $stmt = $pdo->prepare($sql);
                $stmt->execute([$matricule]);
+               $user = $stmt->fetch(PDO::FETCH_OBJ);
 
-               if ($stmt->rowCount() > 0) {
-                    echo "User already exist";
+               $stored_password = $user->password;
+
+               $is_previous_password = password_verify($old_password, $stored_password);
+
+               if (!$is_previous_password) {
+                    echo "Wrong password";
                } else {
-
-                    $sql = "INSERT INTO users (`name`,email,matricule,`password`) VALUES (?,?,?,?)";
+                    $sql = "UPDATE users WHERE (`name`,email,matricule,`password`) VALUES (?,?,?,?)";
                     $stmt = $pdo->prepare($sql);
-                    $stmt->execute([$name, $email, $matricule, $hash_password]);
-                    echo "User registered";
+                    $stmt->execute([$name, $email, $matricule, $new_password]);
+                    echo "User updated";
                }
 
                if (!empty($course_id)) {
@@ -93,7 +96,7 @@ if ($_SERVER["REQUEST_METHOD"] == 'POST') {
                     </div>
                     <div class="form-group mb-3">
                          <label for="password">Old Password:</label>
-                         <input type="text" name="old_password" placeholder="Enter Password" class="form-control">
+                         <input type="text" name="old_pas+sword" placeholder="Enter Password" class="form-control">
                     </div>
                     <div class="form-group mb-3">
                          <label for="password">New Password:</label>
